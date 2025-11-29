@@ -1,23 +1,26 @@
-import express from "express";
-import mysql from "mysql2";
-import cors from "cors";
+const express = require("express");
+const mysql = require("mysql2");
+const cors = require("cors");
+require("dotenv").config(); // .env ফাইল থেকে তথ্য পড়ার জন্য
 
 const app = express();
 
 // Middleware
 app.use(cors());
 app.use(express.json());
-const port = process.env.PORT || 5000
 
-// Database Connection
+const port = process.env.PORT || 5000;
+
+// Database Connection (Cloud Setup)
 const db = mysql.createConnection({
-  host: "localhost",
-  user: "root",
-  
-  // নিচে তোমার MySQL Workbench ইন্সটল করার সময়ের পাসওয়ার্ড দিতে হবে
-  password: "sk27@5826", 
-  
-  database: "test", // আমরা একটু আগেই 'test' নামেই ডাটাবেস বানিয়েছি
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  port: process.env.DB_PORT,
+  ssl: {
+      rejectUnauthorized: false // Aiven ক্লাউড ডাটাবেসের জন্য এটি অবশ্যই লাগবে
+  }
 });
 
 // Check connection
@@ -26,7 +29,7 @@ db.connect((err) => {
         console.error("Database connection failed: " + err.stack);
         return;
     }
-    console.log("Connected to database.");
+    console.log("Connected to Aiven Cloud Database.");
 });
 
 app.get("/", (req, res) => {
@@ -64,7 +67,7 @@ app.post("/books", (req, res) => {
 
   db.query(q, [values], (err, data) => {
     if (err) return res.status(500).json(err);
-    return res.status(201).json("Book has been created successfully.");
+    return res.status(201).json("Book has been created Hurrah");
   });
 });
 
@@ -101,5 +104,5 @@ app.listen(port, () => {
     console.log(`Server is running on port ${port}`);
 });
 
-// এই লাইনটি অবশ্যই যোগ করবে
+// Vercel-এর জন্য export জরুরি
 module.exports = app;
