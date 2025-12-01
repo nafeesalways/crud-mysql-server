@@ -1,51 +1,50 @@
 const express = require("express");
 const mysql = require("mysql2");
 const cors = require("cors");
-require("dotenv").config(); // .env ফাইল থেকে তথ্য পড়ার জন্য
+require("dotenv").config();
 
 const app = express();
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
 const port = process.env.PORT || 5000;
 
-// Database Connection (Cloud Setup)
-const db = mysql.createConnection({
+// CHANGE 1: createConnection এর বদলে createPool ব্যবহার করো
+const db = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   port: process.env.DB_PORT,
+  waitForConnections: true, // কানেকশন পাওয়ার জন্য অপেক্ষা করবে
+  connectionLimit: 10,      // একসাথে সর্বোচ্চ ১০টি কানেকশন
+  queueLimit: 0,
   ssl: {
-      rejectUnauthorized: false // Aiven ক্লাউড ডাটাবেসের জন্য এটি অবশ্যই লাগবে
+      rejectUnauthorized: false
   }
 });
 
-// Check connection
-db.connect((err) => {
-    if (err) {
-        console.error("Database connection failed: " + err.stack);
-        return;
-    }
-    console.log("Connected to Aiven Cloud Database.");
-});
+// CHANGE 2: db.connect() ডিলিট করে দাও
+// Pool অটোমেটিক কানেকশন হ্যান্ডেল করে, তাই ম্যানুয়াল connect() দরকার নেই।
+
+console.log("Database Pool Created."); // চেক করার জন্য লগ
 
 app.get("/", (req, res) => {
   res.json("Welcome to the Backend API");
 });
 
-// GET ALL BOOKS
 app.get("/books", (req, res) => {
   const q = "SELECT * FROM books";
   db.query(q, (err, data) => {
-    if (err) return res.status(500).json(err);
+    if (err) {
+        console.error(err);
+        return res.status(500).json(err);
+    }
     return res.status(200).json(data);
   });
 });
 
-// GET SINGLE BOOK (For Update Page)
 app.get("/books/:id", (req, res) => {
     const bookId = req.params.id;
     const q = "SELECT * FROM books WHERE id = ?";
@@ -55,7 +54,6 @@ app.get("/books/:id", (req, res) => {
     });
   });
 
-// CREATE BOOK
 app.post("/books", (req, res) => {
   const q = "INSERT INTO books(`title`, `desc`, `price`, `cover`) VALUES (?)";
   const values = [
@@ -66,12 +64,15 @@ app.post("/books", (req, res) => {
   ];
 
   db.query(q, [values], (err, data) => {
-    if (err) return res.status(500).json(err);
+    if (err) {
+        // এরর কনসোলে প্রিন্ট করো যাতে Vercel Logs-এ দেখা যায়
+        console.error("Insert Error:", err); 
+        return res.status(500).json(err);
+    }
     return res.status(201).json("Book has been created Hurrah");
   });
 });
 
-// DELETE BOOK
 app.delete("/books/:id", (req, res) => {
   const bookId = req.params.id;
   const q = "DELETE FROM books WHERE id = ?";
@@ -82,7 +83,6 @@ app.delete("/books/:id", (req, res) => {
   });
 });
 
-// UPDATE BOOK
 app.put("/books/:id", (req, res) => {
   const bookId = req.params.id;
   const q = "UPDATE books SET `title`= ?, `desc`= ?, `price`= ?, `cover`= ? WHERE id = ?";
@@ -104,5 +104,4 @@ app.listen(port, () => {
     console.log(`Server is running on port ${port}`);
 });
 
-// Vercel-এর জন্য export জরুরি
 module.exports = app;
